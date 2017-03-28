@@ -1,0 +1,30 @@
+#canvas {
+  border-width: 1px;
+  border-color: black;
+  border-style: solid;
+}
+
+#character {
+  display: none;
+}
+
+#barrier {
+  display: none;
+}
+
+#status {
+  font-size: 20px;
+  font-family: sans-serif;
+}
+
+#fireball {
+  display: none;
+}
+
+#enemy {
+  display: none;
+}
+
+#sack {
+  display: none;
+}
