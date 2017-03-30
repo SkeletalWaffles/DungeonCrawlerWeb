@@ -1,10 +1,5 @@
 'use strict';
 
-/*
-HOMEWORK:
-  - nothing here yet :)
-*/
-
 function makeNewBoard() {
   var board = []
   for (var x = 0; x < 10; x++) {
@@ -37,6 +32,7 @@ function spawnEnemies(board) {
       x: ex,
       y: ey,
       health: 10,
+      startingHealth: 10,
       damage: 5,
     }
     board[ex][ey] = enemy
@@ -57,22 +53,25 @@ function setupBoard(board) {
 
 function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, sack) {
   ctx.clearRect(0, 0, 10 * 50, 10 * 50)
-	for (var b in board) {
-  	for (var i in board) {
-  	  var tile = board[b][i]
+	for (var x in board) {
+  	for (var y in board) {
+  	  var tile = board[x][y]
   	  if (!tile) continue
     	if (tile.type === 'barrier') {
-				ctx.drawImage(barrier, b*50, i*50, 50, 50)
+				ctx.drawImage(barrier, x*50, y*50, 50, 50)
       } else if (tile.type === 'fireball') {
         var size = 7 * tile.power + 6
         var margin = (50 - size) / 2
-        ctx.drawImage(fireballImage, b*50 + margin, i*50 + margin, size, size)
+        ctx.drawImage(fireballImage, x*50 + margin, y*50 + margin, size, size)
       } else if (tile.type === 'character') {
-        ctx.drawImage(char, b*50, i*50, 50, 50)
+        ctx.drawImage(char, x*50, y*50, 50, 50)
       } else if (tile.type === 'enemy') {
-        ctx.drawImage(enemy, b*50, i*50, 50, 50)
+        ctx.drawImage(enemy, x*50, y*50, 50, 50)
+        
+        ctx.fillStyle = "green"
+        ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
       } else if (tile.type === 'weapon') {
-        ctx.drawImage(sack, b*50+15, i*50+15, 20, 20)
+        ctx.drawImage(sack, x*50+15, y*50+15, 20, 20)
       }
     }
   }
@@ -176,13 +175,13 @@ function moveEnemies(enemies, board, player) {
    var xVal = Math.abs(enemy.x - player.x)
    var yVal = Math.abs(enemy.y - player.y)
    
-   if (xVal > yVal) {
+   if (xVal != 0 && (xVal < yVal || yVal === 0)) {
      if (player.x > enemy.x) {
        dx = 1
      } else {
        dx = -1
      }
-   } else if (yVal > xVal) {
+   } else if (player.y !== enemy.y) {
      if (player.y > enemy.y) {
        dy = 1
      } else {
@@ -193,7 +192,9 @@ function moveEnemies(enemies, board, player) {
    var nextx = enemy.x + dx
    var nexty = enemy.y + dy
    
-   if (board[nextx][nexty] === null) {
+   if (nextx < 0 || nexty < 0) {
+     return
+    } else if (board[nextx][nexty] === null) {
      board[enemy.x][enemy.y] = null
      enemy.x += dx
      enemy.y += dy
@@ -205,18 +206,7 @@ function moveEnemies(enemies, board, player) {
    }
   })
 }
-/*
-- make a status section - DONE
- - health - DONE
- - current weapon - DONE
-- make enemies - DONE
-- make the board much bigger, only draw a part of it
-- make a real cave-like thing
-- make items - MOSTLY DONE
-- have different images - for rotations of character and fireball
 
-
-*/
 function main() {
   var canvas = document.getElementById("canvas")
   var status = document.getElementById("status")
@@ -237,7 +227,8 @@ function main() {
     x: 0,
     y: 0,
     health: 100,
-    firePower: 4,
+    startingHealth: 100,
+    firePower: 5,
     weapon: {
       name: "Toy Sword",
       damage: 3
