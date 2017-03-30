@@ -31,8 +31,8 @@ function spawnEnemies(board) {
       type: 'enemy',
       x: ex,
       y: ey,
-      health: 20,
-      startingHealth: 20,
+      health: 10,
+      startingHealth: 10,
       damage: 5,
     }
     board[ex][ey] = enemy
