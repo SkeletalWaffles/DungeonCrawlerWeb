@@ -31,8 +31,8 @@ function spawnEnemies(board) {
       type: 'enemy',
       x: ex,
       y: ey,
-      health: 10,
-      startingHealth: 10,
+      health: 20,
+      startingHealth: 20,
       damage: 5,
     }
     board[ex][ey] = enemy
@@ -51,6 +51,17 @@ function setupBoard(board) {
   return spawnEnemies(board)
 }
 
+function healthBar(tile, ctx, x, y) {
+  if (tile.health >= tile.startingHealth/2) {
+    ctx.fillStyle = "green"
+  } else if (tile.health <= tile.startingHealth/2 && tile.health >= tile.startingHealth/3) {
+    ctx.fillStyle = "yellow"
+  } else {
+    ctx.fillStyle = "red"
+  }
+  ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
+}
+
 function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, sack) {
   ctx.clearRect(0, 0, 10 * 50, 10 * 50)
 	for (var x in board) {
@@ -65,11 +76,12 @@ function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireba
         ctx.drawImage(fireballImage, x*50 + margin, y*50 + margin, size, size)
       } else if (tile.type === 'character') {
         ctx.drawImage(char, x*50, y*50, 50, 50)
+        
+        healthBar(tile, ctx, x, y)
       } else if (tile.type === 'enemy') {
         ctx.drawImage(enemy, x*50, y*50, 50, 50)
         
-        ctx.fillStyle = "green"
-        ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
+        healthBar(tile, ctx, x, y)
       } else if (tile.type === 'weapon') {
         ctx.drawImage(sack, x*50+15, y*50+15, 20, 20)
       }
