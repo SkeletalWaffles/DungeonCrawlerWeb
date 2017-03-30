@@ -271,10 +271,13 @@ function main() {
   drawBoard(board, ctx, char, fireballImage, barrier, [], sack)
   
   document.onkeydown = function(event) {
+    var shouldRegenHealth = true
+    
     var recentlyDiedFireballs = []
     fireballs = moveFireballs(fireballs, board, recentlyDiedFireballs)
     if (event.shiftKey) {
       createFireball(event.code, player, board, fireballs, recentlyDiedFireballs)
+      shouldRegenHealth = false
     } else if (event.key === "a") {
       enemies.forEach(enemy => {
         var xVal = Math.abs(player.x - enemy.x)
@@ -285,11 +288,21 @@ function main() {
         } else {
           return
         }
-        
-        console.log(enemy)
       })
+      
+      shouldRegenHealth = false
     } else {
       movePlayer(event.code, player, board)
+      shouldRegenHealth = true
+    }
+    
+    if (shouldRegenHealth) {
+      var healthBoost = Math.floor(Math.random() * 5)
+      player.health += healthBoost
+    }
+    
+    if (player.health >= player.startingHealth) {
+      player.health = player.startingHealth
     }
     
     moveEnemies(enemies, board, player)
