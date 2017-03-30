@@ -48,6 +48,9 @@ function setupBoard(board) {
     board[bx][by] = {type: 'barrier'}
   }
   
+  var [lx, ly] = findEmptySpace(board)
+  board[lx][ly] = {type: "ladder"}
+  
   return spawnEnemies(board)
 }
 
@@ -62,7 +65,7 @@ function healthBar(tile, ctx, x, y) {
   ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
 }
 
-function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, sack) {
+function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, sack, ladder) {
   ctx.clearRect(0, 0, 10 * 50, 10 * 50)
 	for (var x in board) {
   	for (var y in board) {
@@ -84,6 +87,8 @@ function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireba
         healthBar(tile, ctx, x, y)
       } else if (tile.type === 'weapon') {
         ctx.drawImage(sack, x*50+15, y*50+15, 20, 20)
+      } else if (tile.type === "ladder") {
+        ctx.drawImage(ladder, x*50, y*50, 50, 50)
       }
     }
   }
@@ -177,6 +182,11 @@ function movePlayer(code, player, board) {
     player.x += dx
     player.y += dy
     board[player.x][player.y] = player
+  } else if (board[nextx][nexty].type === "ladder") {
+    // Go downstairs a level
+    player.depth += 1
+    
+    return true
   }
 }
 
@@ -219,34 +229,13 @@ function moveEnemies(enemies, board, player) {
   })
 }
 
-function main() {
-  var canvas = document.getElementById("canvas")
+function showStatus(player) {
   var status = document.getElementById("status")
-  var ctx = canvas.getContext("2d")
-  
-  var char = document.getElementById("character")
-  var barrier = document.getElementById("barrier")
-  var fireballImage = document.getElementById("fireball")
-  var enemy = document.getElementById("enemy")
-  var sack = document.getElementById("sack")
-  
-  var board = makeNewBoard()
-  
-  
-  var fireballs = [] // {x: 5, y: 5, power: 5, dx: 0, dy: 1}
-  var player = {
-    type: 'character',
-    x: 0,
-    y: 0,
-    health: 100,
-    startingHealth: 100,
-    firePower: 5,
-    weapon: {
-      name: "Toy Sword",
-      damage: 3
-    }
-  }
-  
+  status.innerHTML = 'Health: ' + player.health +  ', FirePower: ' + player.firePower + ', Weapon: ' + player.weapon.name + ", Depth: " + player.depth
+}
+
+function setupLevel(player) {
+    var board = makeNewBoard()
   var [px, py] = findEmptySpace(board)
   board[px][py] = player
   player.x = px
@@ -267,8 +256,44 @@ function main() {
     var [wx, wy] = findEmptySpace(board)
     board[wx][wy] = weapon
   })
+  return {board, enemies, weapons}
+}
+
+function main() {
+  var canvas = document.getElementById("canvas")
+  var status = document.getElementById("status")
+  var ctx = canvas.getContext("2d")
   
-  drawBoard(board, ctx, char, fireballImage, barrier, [], sack)
+  var char = document.getElementById("character")
+  var barrier = document.getElementById("barrier")
+  var fireballImage = document.getElementById("fireball")
+  var enemy = document.getElementById("enemy")
+  var sack = document.getElementById("sack")
+  var ladder = document.getElementById("ladder")
+  
+  
+  
+  var fireballs = [] // {x: 5, y: 5, power: 5, dx: 0, dy: 1}
+  var player = {
+    type: 'character',
+    x: 0,
+    y: 0,
+    health: 100,
+    startingHealth: 100,
+    firePower: 5,
+    weapon: {
+      name: "Toy Sword",
+      damage: 3
+    },
+    depth: 0
+  }
+  
+  showStatus(player)
+  
+  var {board, enemies, weapons} = setupLevel(player)
+
+  
+  drawBoard(board, ctx, char, fireballImage, barrier, [], sack, ladder)
   
   document.onkeydown = function(event) {
     var shouldRegenHealth = true
@@ -292,12 +317,19 @@ function main() {
       
       shouldRegenHealth = false
     } else {
-      movePlayer(event.code, player, board)
+      
+      var justMovedDownALevel = movePlayer(event.code, player, board)
       shouldRegenHealth = true
+      if (justMovedDownALevel) {
+        var newStuff = setupLevel(player)
+        board = newStuff.board 
+        enemies = newStuff.enemies
+        weapons = newStuff.weapons
+      }
     }
     
     if (shouldRegenHealth) {
-      var healthBoost = Math.floor(Math.random() * 5)
+      var healthBoost = Math.floor(Math.random() * 3)
       player.health += healthBoost
     }
     
@@ -309,8 +341,8 @@ function main() {
     
     enemies = removeDeadEnemies(enemies, player, board)
     
-    drawBoard(board, ctx, char, fireballImage, barrier, recentlyDiedFireballs, sack)
-    status.innerHTML = 'Health: ' + player.health +  ', FirePower: ' + player.firePower + ', Weapon: ' + player.weapon.name
+    drawBoard(board, ctx, char, fireballImage, barrier, recentlyDiedFireballs, sack, ladder)
+    showStatus(player)
     
     if (player.health <= 0) {
       ctx.fillStyle = 'black'
