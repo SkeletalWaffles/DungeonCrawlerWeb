@@ -32,3 +32,19 @@
 #ladder {
   display: none;
 }
+
+#player-mini {
+  display: none;
+}
+
+#chest-mini {
+  display: none;
+}
+
+#enemy-mini {
+  display: none;
+}
+
+#ladder-mini {
+  display: none;
+}
