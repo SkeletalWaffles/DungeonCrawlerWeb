@@ -19,8 +19,8 @@ function makePassageway(board) {
     }
   }
   
-  var x = Math.floor(Math.random() * boardSize)
-  var y = Math.floor(Math.random() * boardSize)
+  var x = boardSize/2 | 0
+  var y = boardSize/2 | 0
   
   var directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]
   for (var i = 0; i < (boardSize * (boardSize / 4) * 3); i++) {
@@ -84,6 +84,68 @@ function healthBar(tile, ctx, x, y) {
   ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
 }
 
+function drawMiniMap(board, ctx, playerMini, chestMini, enemyMini, ladderMini, barrier, player, fogOfWarBoard) {
+  var minimapSize = 150
+  var sightRange = 25
+  var scale = minimapSize / (sightRange * 2) 
+  var mx = 500-minimapSize
+  var my = 500-minimapSize
+  ctx.clearRect(mx, my, minimapSize, minimapSize)
+  ctx.strokeRect(mx, my, minimapSize, minimapSize)
+  
+  
+  for (var x = player.x - sightRange; x < player.x + sightRange + 1; x++) {
+    for (var y = player.y - sightRange; y < player.y + sightRange + 1; y++) {
+      var drawX = x - (player.x - sightRange)
+      var drawY = y - (player.y - sightRange)
+      
+  	  if (x > 99 || y > 99 || x < 0 || y < 0) {
+  	    ctx.fillStyle = 'black'
+  	    ctx.fillRect(drawX*scale+mx, drawY*scale+mx, scale, scale)
+  	    //ctx.drawImage(barrier, )
+  	    continue
+  	  }
+      
+      var tile = board[x][y]
+      var isVisible = fogOfWarBoard[x][y]
+      if (!isVisible) {
+  	    ctx.fillStyle = 'black'
+  	    ctx.fillRect(drawX*scale+mx, drawY*scale+mx, scale, scale)
+  	    continue
+      }
+      
+      if (tile === null) continue
+      
+    	if (tile.type === 'barrier') {
+				ctx.drawImage(barrier, drawX*scale+mx, drawY*scale+my, scale, scale)
+      } else if (tile.type === 'character') {
+        ctx.drawImage(playerMini, drawX*scale+mx, drawY*scale+my, scale, scale)
+      } else if (tile.type === 'enemy') {
+        ctx.drawImage(enemyMini, drawX*scale+mx, drawY*scale+my, scale, scale)
+      } else if (tile.type === 'weapon' || tile.type === "gold" || tile.type === "health potion") {
+        ctx.drawImage(chestMini, drawX*scale+mx, drawY*scale+my, scale, scale)
+      } else if (tile.type === "ladder") {
+        ctx.drawImage(ladderMini, drawX*scale+mx, drawY*scale+my, scale, scale)
+      }
+    }
+  }
+}
+
+
+function clearFog(fogOfWarBoard, player) {
+  var sightRange = 5
+  
+	for (var x = player.x - sightRange; x < player.x + sightRange + 1; x++) {
+  	for (var y = player.y - sightRange; y < player.y + sightRange + 1; y++) {
+  	  
+  	  if (x > 99 || y > 99 || x < 0 || y < 0) {
+  	    continue
+  	  }
+  	  fogOfWarBoard[x][y] = true
+  	}
+	}
+}
+
 function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, chest, ladder, player) {
   ctx.clearRect(0, 0, 10 * 50, 10 * 50)
   var sightRange = 5
@@ -115,7 +177,7 @@ function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireba
         ctx.drawImage(enemy, drawX*50, drawY*50, 50, 50)
         
         healthBar(tile, ctx, drawX, drawY)
-      } else if (tile.type === 'weapon' || tile.type === "gold") {
+      } else if (tile.type === 'weapon' || tile.type === "gold" || tile.type === "health potion") {
         ctx.drawImage(chest, drawX*50, drawY*50, 50, 50)
       } else if (tile.type === "ladder") {
         ctx.drawImage(ladder, drawX*50, drawY*50, 50, 50)
@@ -286,6 +348,7 @@ function showStatus(player) {
 
 function setupLevel(player) {
   var board = makeNewBoard()
+  var fogOfWarBoard = makeNewBoard();
   var enemies = setupBoard(board)
   var [px, py] = findEmptySpace(board)
   board[px][py] = player
@@ -309,7 +372,7 @@ function setupLevel(player) {
   }]
   
   var choice = Math.floor(Math.random() * treasures.length)
-  for (i = 0; i < 10; i++) {
+  for (i = 0; i < 5; i++) {
     var c = treasures[choice]
     var [tx, ty] = findEmptySpace(board)
     
@@ -323,7 +386,7 @@ function setupLevel(player) {
     }
   }
 
-  return {board, enemies, treasures, weapons}
+  return {board, enemies, treasures, weapons, fogOfWarBoard}
 }
 
 function main() {
@@ -337,6 +400,11 @@ function main() {
   var enemy = document.getElementById("enemy")
   var chest = document.getElementById("chest")
   var ladder = document.getElementById("ladder")
+  
+  var playerMini = document.getElementById("player-mini")
+  var chestMini = document.getElementById("chest-mini")
+  var enemyMini = document.getElementById("enemy-mini")
+  var ladderMini = document.getElementById("ladder-mini")
   
   
   
@@ -358,10 +426,12 @@ function main() {
   
   showStatus(player)
   
-  var {board, enemies, treasures, weapons} = setupLevel(player)
+  var {board, enemies, treasures, weapons, fogOfWarBoard} = setupLevel(player)
 
+  clearFog(fogOfWarBoard, player)
   
   drawBoard(board, ctx, char, fireballImage, barrier, [], chest, ladder, player)
+  drawMiniMap(board, ctx, playerMini, chestMini, enemyMini, ladderMini, barrier, player, fogOfWarBoard)
   
   document.onkeydown = function(event) {
     var shouldRegenHealth = true
@@ -393,6 +463,7 @@ function main() {
         board = newStuff.board 
         enemies = newStuff.enemies
         treasures = newStuff.treasures
+        fogOfWarBoard = newStuff.fogOfWarBoard
       }
     }
     
@@ -407,10 +478,14 @@ function main() {
     
     moveEnemies(enemies, board, player)
     
+    clearFog(fogOfWarBoard, player)
+    
     enemies = removeDeadEnemies(enemies, player, board)
+    console.log(enemies)
     
     drawBoard(board, ctx, char, fireballImage, barrier, recentlyDiedFireballs, chest, ladder, player)
     showStatus(player)
+    drawMiniMap(board, ctx, playerMini, chestMini, enemyMini, ladderMini, barrier, player, fogOfWarBoard)
     
     if (player.health <= 0) {
       ctx.fillStyle = 'black'
@@ -430,6 +505,7 @@ function removeDeadEnemies(enemies, player, board) {
       player.experience += 10
       player.gold += parseInt(Math.random() * 20)
       board[enemy.x][enemy.y] = null
+      console.log("The enemy died")
       
       var [ex, ey] = findEmptySpace(board)
       var enemy = {
@@ -441,7 +517,7 @@ function removeDeadEnemies(enemies, player, board) {
         damage: 5,
       }
       board[ex][ey] = enemy
-      enemies.push(enemy)
+      liveEnemies.push(enemy)
     }
   })
   return liveEnemies
