@@ -47,7 +47,7 @@ function findEmptySpace(board) {
 
 function spawnEnemies(board) {
   var enemies = []
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 10; i++) {
     var [ex, ey] = findEmptySpace(board)
     var enemy = {
       type: 'enemy',
@@ -175,7 +175,27 @@ function createFireball(code, player, board, fireballs, recentlyDiedFireballs) {
   }
 }
 
-function movePlayer(code, player, board) {
+function gotTreasure(board, player, treasures, dx, dy, weapons) {
+  board[player.x][player.y] = null
+  player.x += dx
+  player.y += dy
+  board[player.x][player.y] = player
+  
+  var choice = Math.floor(Math.random() * treasures.length)
+  var c = treasures[choice]
+  var [tx, ty] = findEmptySpace(board)
+  
+  if (c === weapons) {
+    var cw = Math.floor(Math.random() * weapons.length)
+    board[tx][ty] = c[cw]
+  } else if (c.type === "gold") {
+    board[tx][ty] = c
+  } else if (c.type === "health potion") {
+      board[tx][ty] = c
+  }
+}
+
+function movePlayer(code, player, board, treasures, weapons) {
     // if we press left, then go left, etc.\
   var dx = 0
   var dy = 0
@@ -205,10 +225,7 @@ function movePlayer(code, player, board) {
     player.health -= 5
   } else if (board[nextx][nexty].type === "weapon") {
     player.weapon = board[nextx][nexty]
-    board[player.x][player.y] = null
-    player.x += dx
-    player.y += dy
-    board[player.x][player.y] = player
+    gotTreasure(board, player, treasures, dx, dy, weapons)
   } else if (board[nextx][nexty].type === "ladder") {
     // Go downstairs a level
     player.depth += 1
@@ -216,10 +233,10 @@ function movePlayer(code, player, board) {
     return true
   } else if (board[nextx][nexty].type === "gold") {
     player.gold += board[nextx][nexty].amount
-    board[player.x][player.y] = null
-    player.x += dx
-    player.y += dy
-    board[player.x][player.y] = player
+    gotTreasure(board, player, treasures, dx, dy, weapons)
+  } else if (board[nextx][nexty].type === "health potion") {
+    player.health += board[nextx][nexty].healing
+    gotTreasure(board, player, treasures, dx, dy, weapons)
   }
 }
 
@@ -286,6 +303,9 @@ function setupLevel(player) {
   var treasures = [weapons, {
     type: "gold",
     amount: 50
+  }, {
+    type: "health potion",
+    healing: 20
   }]
   
   var choice = Math.floor(Math.random() * treasures.length)
@@ -298,12 +318,12 @@ function setupLevel(player) {
       board[tx][ty] = c[cw]
     } else if (c.type === "gold") {
       board[tx][ty] = c
-    } else {
-      console.log("Hmmm... The button was made of jelly")
+    } else if (c.type === "health potion") {
+      board[tx][ty] = c
     }
   }
 
-  return {board, enemies}
+  return {board, enemies, treasures, weapons}
 }
 
 function main() {
@@ -338,7 +358,7 @@ function main() {
   
   showStatus(player)
   
-  var {board, enemies} = setupLevel(player)
+  var {board, enemies, treasures, weapons} = setupLevel(player)
 
   
   drawBoard(board, ctx, char, fireballImage, barrier, [], chest, ladder, player)
@@ -366,7 +386,7 @@ function main() {
       shouldRegenHealth = false
     } else {
       
-      var justMovedDownALevel = movePlayer(event.code, player, board)
+      var justMovedDownALevel = movePlayer(event.code, player, board, treasures, weapons)
       shouldRegenHealth = true
       if (justMovedDownALevel) {
         var newStuff = setupLevel(player)
@@ -410,6 +430,18 @@ function removeDeadEnemies(enemies, player, board) {
       player.experience += 10
       player.gold += parseInt(Math.random() * 20)
       board[enemy.x][enemy.y] = null
+      
+      var [ex, ey] = findEmptySpace(board)
+      var enemy = {
+        type: 'enemy',
+        x: ex,
+        y: ey,
+        health: 10,
+        startingHealth: 10,
+        damage: 5,
+      }
+      board[ex][ey] = enemy
+      enemies.push(enemy)
     }
   })
   return liveEnemies
