@@ -25,6 +25,10 @@
   display: none;
 }
 
-#sack {
+#chest {
+  display: none;
+}
+
+#ladder {
   display: none;
 }
