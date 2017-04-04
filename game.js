@@ -1,10 +1,10 @@
-'use strict';
+boardSize = 100
 
 function makeNewBoard() {
   var board = []
-  for (var x = 0; x < 10; x++) {
+  for (var x = 0; x < boardSize; x++) {
   	var row = []
-    for (var y = 0; y < 10; y++) {
+    for (var y = 0; y < boardSize; y++) {
     	row.push(null)
     }
     board.push(row)
@@ -12,9 +12,31 @@ function makeNewBoard() {
   return board
 }
 
+function makePassageway(board) {
+  for (var x = 0; x < boardSize; x++) {
+    for (var y = 0; y < boardSize; y++) {
+      board[x][y] = {type: "barrier"}
+    }
+  }
+  
+  var x = Math.floor(Math.random() * boardSize)
+  var y = Math.floor(Math.random() * boardSize)
+  
+  var directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]
+  for (var i = 0; i < (boardSize * (boardSize / 4) * 3); i++) {
+    var choice = Math.floor(Math.random() * 4)
+    var dr = directions[choice]
+    x += dr[0]
+    y += dr[1]
+    x = Math.min(Math.max(x, 1), board.length - 1)
+    y = Math.min(Math.max(y, 1), board.length - 1)
+    board[x][y] = null
+  }
+}
+
 function findEmptySpace(board) {
-	var x = Math.floor(Math.random() * 10)
-  var y = Math.floor(Math.random() * 10)
+	var x = Math.floor(Math.random() * boardSize)
+  var y = Math.floor(Math.random() * boardSize)
   
   if (board[x][y] === null) {
     return [x, y]
@@ -43,10 +65,7 @@ function spawnEnemies(board) {
 }
 
 function setupBoard(board) {
-  for (var i = 0; i < 10; i++) {
-    var [bx, by] = findEmptySpace(board)
-    board[bx][by] = {type: 'barrier'}
-  }
+  makePassageway(board)
   
   var [lx, ly] = findEmptySpace(board)
   board[lx][ly] = {type: "ladder"}
@@ -65,32 +84,43 @@ function healthBar(tile, ctx, x, y) {
   ctx.fillRect(x * 50, y * 50-5, (50/tile.startingHealth)*tile.health, 5)
 }
 
-function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, sack, ladder) {
+function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireballs, chest, ladder, player) {
   ctx.clearRect(0, 0, 10 * 50, 10 * 50)
-	for (var x in board) {
-  	for (var y in board) {
+  var sightRange = 5
+  
+	for (var x = player.x - sightRange; x < player.x + sightRange + 1; x++) {
+  	for (var y = player.y - sightRange; y < player.y + sightRange + 1; y++) {
+  	  var drawX = x - (player.x - sightRange)
+  	  var drawY = y - (player.y - sightRange)
+  	  
+  	  if (x > 99 || y > 99 || x < 0 || y < 0) {
+  	    ctx.drawImage(barrier, drawX*50, drawY*50, 50, 50)
+  	    continue
+  	  }
   	  var tile = board[x][y]
-  	  if (!tile) continue
+  	  
+  	  if (tile === null) continue
+  	  
     	if (tile.type === 'barrier') {
-				ctx.drawImage(barrier, x*50, y*50, 50, 50)
+				ctx.drawImage(barrier, drawX*50, drawY*50, 50, 50)
       } else if (tile.type === 'fireball') {
         var size = 7 * tile.power + 6
         var margin = (50 - size) / 2
-        ctx.drawImage(fireballImage, x*50 + margin, y*50 + margin, size, size)
+        ctx.drawImage(fireballImage, drawX*50 + margin, drawY*50 + margin, size, size)
       } else if (tile.type === 'character') {
-        ctx.drawImage(char, x*50, y*50, 50, 50)
+        ctx.drawImage(char, drawX*50, drawY*50, 50, 50)
         
-        healthBar(tile, ctx, x, y)
+        healthBar(tile, ctx, drawX, drawY)
       } else if (tile.type === 'enemy') {
-        ctx.drawImage(enemy, x*50, y*50, 50, 50)
+        ctx.drawImage(enemy, drawX*50, drawY*50, 50, 50)
         
-        healthBar(tile, ctx, x, y)
-      } else if (tile.type === 'weapon') {
-        ctx.drawImage(sack, x*50+15, y*50+15, 20, 20)
+        healthBar(tile, ctx, drawX, drawY)
+      } else if (tile.type === 'weapon' || tile.type === "gold") {
+        ctx.drawImage(chest, drawX*50, drawY*50, 50, 50)
       } else if (tile.type === "ladder") {
-        ctx.drawImage(ladder, x*50, y*50, 50, 50)
+        ctx.drawImage(ladder, drawX*50, drawY*50, 50, 50)
       }
-    }
+	  }
   }
   recentlyDiedFireballs.forEach(fireball => {
     var fx = fireball.x*50 + 25
@@ -102,7 +132,6 @@ function drawBoard(board, ctx, char, fireballImage, barrier,  recentlyDiedFireba
       ctx.drawImage(fireballImage, fx + x - 2, fy+ y - 2, 4, 4)
 
     }
-
   })
 }
 
@@ -138,7 +167,6 @@ function createFireball(code, player, board, fireballs, recentlyDiedFireballs) {
   
     board[nextx][nexty] = fireball
   } else if (board[nextx][nexty].type === 'barrier') {
-    console.log("You're firing at a barrier")
     return
   } else if (board[nextx][nexty].type === 'enemy') {
     board[nextx][nexty].health -= player.firePower
@@ -164,7 +192,7 @@ function movePlayer(code, player, board) {
   
   var nextx = player.x + dx
   var nexty = player.y + dy
-  if (nextx > 9 || nexty > 9 || nextx < 0 || nexty < 0) {
+  if (nextx > boardSize || nexty > boardSize || nextx < 0 || nexty < 0) {
     return
   } else if (board[nextx][nexty] === null) {
     board[player.x][player.y] = null
@@ -175,7 +203,6 @@ function movePlayer(code, player, board) {
     return
   } else if (board[nextx][nexty].type === "enemy") {
     player.health -= 5
-    console.log(player.health)
   } else if (board[nextx][nexty].type === "weapon") {
     player.weapon = board[nextx][nexty]
     board[player.x][player.y] = null
@@ -187,6 +214,12 @@ function movePlayer(code, player, board) {
     player.depth += 1
     
     return true
+  } else if (board[nextx][nexty].type === "gold") {
+    player.gold += board[nextx][nexty].amount
+    board[player.x][player.y] = null
+    player.x += dx
+    player.y += dy
+    board[player.x][player.y] = player
   }
 }
 
@@ -231,32 +264,46 @@ function moveEnemies(enemies, board, player) {
 
 function showStatus(player) {
   var status = document.getElementById("status")
-  status.innerHTML = 'Health: ' + player.health +  ', FirePower: ' + player.firePower + ', Weapon: ' + player.weapon.name + ", Depth: " + player.depth
+  status.innerHTML = 'Health: ' + player.health +  ', FirePower: ' + player.firePower + ', Weapon: ' + player.weapon.name + ", Depth: " + player.depth + ", Location: " + player.x + ", " + player.y  + ", Gold: " + player.gold
 }
 
 function setupLevel(player) {
-    var board = makeNewBoard()
+  var board = makeNewBoard()
+  var enemies = setupBoard(board)
   var [px, py] = findEmptySpace(board)
   board[px][py] = player
   player.x = px
   player.y = py
-  var enemies = setupBoard(board)
   
-  var weapons = []
-  var avWeapons = [
+  var weapons = [
     {
       name: "Cheap Sword",
       damage: 7,
       type: "weapon"
-    }
+    }  
   ]
+  
+  var treasures = [weapons, {
+    type: "gold",
+    amount: 50
+  }]
+  
+  var choice = Math.floor(Math.random() * treasures.length)
+  for (i = 0; i < 10; i++) {
+    var c = treasures[choice]
+    var [tx, ty] = findEmptySpace(board)
+    
+    if (c === weapons) {
+      var cw = Math.floor(Math.random() * weapons.length)
+      board[tx][ty] = c[cw]
+    } else if (c.type === "gold") {
+      board[tx][ty] = c
+    } else {
+      console.log("Hmmm... The button was made of jelly")
+    }
+  }
 
-  weapons.push(avWeapons[0])
-  weapons.forEach(weapon => {
-    var [wx, wy] = findEmptySpace(board)
-    board[wx][wy] = weapon
-  })
-  return {board, enemies, weapons}
+  return {board, enemies}
 }
 
 function main() {
@@ -268,7 +315,7 @@ function main() {
   var barrier = document.getElementById("barrier")
   var fireballImage = document.getElementById("fireball")
   var enemy = document.getElementById("enemy")
-  var sack = document.getElementById("sack")
+  var chest = document.getElementById("chest")
   var ladder = document.getElementById("ladder")
   
   
@@ -285,15 +332,16 @@ function main() {
       name: "Toy Sword",
       damage: 3
     },
-    depth: 0
+    depth: 0,
+    gold: 0
   }
   
   showStatus(player)
   
-  var {board, enemies, weapons} = setupLevel(player)
+  var {board, enemies} = setupLevel(player)
 
   
-  drawBoard(board, ctx, char, fireballImage, barrier, [], sack, ladder)
+  drawBoard(board, ctx, char, fireballImage, barrier, [], chest, ladder, player)
   
   document.onkeydown = function(event) {
     var shouldRegenHealth = true
@@ -324,7 +372,7 @@ function main() {
         var newStuff = setupLevel(player)
         board = newStuff.board 
         enemies = newStuff.enemies
-        weapons = newStuff.weapons
+        treasures = newStuff.treasures
       }
     }
     
@@ -341,7 +389,7 @@ function main() {
     
     enemies = removeDeadEnemies(enemies, player, board)
     
-    drawBoard(board, ctx, char, fireballImage, barrier, recentlyDiedFireballs, sack, ladder)
+    drawBoard(board, ctx, char, fireballImage, barrier, recentlyDiedFireballs, chest, ladder, player)
     showStatus(player)
     
     if (player.health <= 0) {
@@ -362,7 +410,6 @@ function removeDeadEnemies(enemies, player, board) {
       player.experience += 10
       player.gold += parseInt(Math.random() * 20)
       board[enemy.x][enemy.y] = null
-      console.log('removing enemy', enemy)
     }
   })
   return liveEnemies
@@ -410,7 +457,6 @@ function moveFireballs(fireballs, board, recentlyDiedFireballs) {
       nextTile.health -= fireball.power
       fireball.dead = true
       recentlyDiedFireballs.push(fireball)
-      console.log("I hit the enemy. and he is us", nextTile)
     } else {
     }
   })
